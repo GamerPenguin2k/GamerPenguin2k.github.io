@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tap to Poop</title>
+<style>
+:root{--bg:#fdf3dc;--fg:#3b2412;--card:#fff;--meter:#e6d5b8;--accent:#8b5a2b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1610;--fg:#f5e6cf;--card:#2b2118;--meter:#463826;--accent:#d9a066}}
+:root[data-theme="dark"]{--bg:#1d1610;--fg:#f5e6cf;--card:#2b2118;--meter:#463826;--accent:#d9a066}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;user-select:none;-webkit-user-select:none;touch-action:manipulation;overflow:hidden;-webkit-tap-highlight-color:transparent}
+#app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:14px 18px;box-sizing:border-box;max-width:520px;margin:0 auto}
+h1{margin:0;font-size:1.3rem}
+#lvl{font-weight:800;font-size:1.4rem}
+#hint{font-size:.95rem;opacity:.75;text-align:center;min-height:1.3em}
+#meterWrap{width:100%;height:34px;background:var(--meter);border-radius:20px;overflow:hidden;border:3px solid var(--fg)}
+#meter{height:100%;width:0;background:linear-gradient(90deg,#c58b3c,#6b3e1a);transition:width .05s}
+#stage{flex:1;width:100%;display:flex;align-items:center;justify-content:center;position:relative;min-height:0}
+svg{max-height:100%;width:80%}
+#guy{transform-origin:50% 100%}
+#poop{opacity:0;font-size:60px}
+#plop{position:absolute;top:8%;font-size:3rem;font-weight:900;color:var(--accent);opacity:0;pointer-events:none}
+#plop.show{animation:pl 1s ease-out}
+@keyframes pl{0%{opacity:1;transform:scale(.5)}40%{transform:scale(1.4) rotate(-6deg)}100%{opacity:0;transform:scale(1.6) translateY(-30px)}}
+#msg{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:color-mix(in srgb,var(--bg) 88%,transparent);text-align:center;padding:30px;z-index:5}
+#msg h2{font-size:2rem;margin:0}
+#msg p{margin:0;opacity:.8}
+#msg .btn{margin-top:10px;background:var(--accent);color:var(--bg);padding:14px 30px;border-radius:30px;font-weight:800;font-size:1.1rem}
+#tapzone{width:100%;padding:18px;text-align:center;font-weight:800;font-size:1.3rem;background:var(--accent);color:var(--bg);border-radius:20px;box-sizing:border-box}
+#tapzone:active{transform:scale(.97)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>💩 Tap to Poop</h1>
+  <div id="lvl">Level 1</div>
+  <div id="meterWrap"><div id="meter"></div></div>
+  <div id="hint">Tap like crazy!</div>
+  <div id="stage">
+    <svg viewBox="0 0 200 240" aria-hidden="true">
+      <g id="guy">
+        <rect x="60" y="150" width="80" height="60" rx="8" fill="#3b6fb6"/>
+        <rect x="55" y="40" width="90" height="0" fill="none"/>
+        <circle id="head" cx="100" cy="85" r="42" fill="#f6c9a0" stroke="#3b2412" stroke-width="3"/>
+        <path d="M62 70 Q100 30 138 70 Q120 50 100 52 Q80 50 62 70Z" fill="#4a2c14"/>
+        <g id="eyes"><circle cx="85" cy="85" r="5" fill="#3b2412"/><circle cx="115" cy="85" r="5" fill="#3b2412"/></g>
+        <path id="brow1" d="M76 72 L94 78" stroke="#3b2412" stroke-width="3" stroke-linecap="round"/>
+        <path id="brow2" d="M124 72 L106 78" stroke="#3b2412" stroke-width="3" stroke-linecap="round"/>
+        <ellipse id="mouth" cx="100" cy="108" rx="10" ry="3" fill="#3b2412"/>
+        <text id="sweat" x="140" y="70" font-size="22" opacity="0">💦</text>
+        <rect x="72" y="205" width="14" height="22" rx="5" fill="#f6c9a0" stroke="#3b2412" stroke-width="2"/>
+        <rect x="114" y="205" width="14" height="22" rx="5" fill="#f6c9a0" stroke="#3b2412" stroke-width="2"/>
+      </g>
+      <path d="M40 195 H160 L150 225 Q100 240 50 225Z" fill="#f4f4f4" stroke="#3b2412" stroke-width="3"/>
+      <rect x="45" y="188" width="110" height="12" rx="6" fill="#ddd" stroke="#3b2412" stroke-width="3"/>
+      <text id="poop" x="100" y="215" text-anchor="middle">💩</text>
+    </svg>
+    <div id="plop">PLOP!</div>
+    <div id="msg">
+      <h2>Tap to Poop</h2>
+      <p>Mash the screen to fill the meter.<br>Each level gets harder!</p>
+      <div class="btn">Start</div>
+    </div>
+  </div>
+  <div id="tapzone">TAP! TAP! TAP!</div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+let level=1,fill=0,state='idle',last=0,ac=null;
+const gain=()=>Math.max(1.5,6-0.45*(level-1));
+const drain=()=>6+3*(level-1);
+
+function audio(){try{if(!ac)ac=new (window.AudioContext||window.webkitAudioContext)();if(ac.state==='suspended')ac.resume();}catch(e){}}
+function tone(f0,f1,dur,type,vol){if(!ac)return;const t=ac.currentTime,o=ac.createOscillator(),g=ac.createGain();o.type=type;o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+dur);g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+dur);}
+function noise(dur,vol,freq){if(!ac)return;const t=ac.currentTime,n=ac.sampleRate*dur,b=ac.createBuffer(1,n,ac.sampleRate),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;const s=ac.createBufferSource();s.buffer=b;const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.setValueAtTime(freq,t);f.frequency.exponentialRampToValueAtTime(100,t+dur);const g=ac.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);s.connect(f).connect(g).connect(ac.destination);s.start(t);}
+function strainSound(){tone(120+fill*3,90+fill*2,.08,'sawtooth',.07);}
+function poopSound(){
+  tone(320,50,.35,'sine',.7);noise(.5,.8,700);
+  setTimeout(()=>{tone(200,40,.25,'sine',.6);noise(.3,.5,500);},260);
+  setTimeout(()=>tone(140,60,.3,'triangle',.4),450);
+}
+
+function render(){
+  $('meter').style.width=fill+'%';
+  const p=fill/100;
+  $('head').setAttribute('fill',`hsl(${25-p*25},${70+p*20}%,${80-p*25}%)`);
+  $('mouth').setAttribute('ry',3+p*9);
+  $('mouth').setAttribute('rx',10-p*3);
+  $('brow1').setAttribute('d',`M76 ${72+p*4} L94 ${78-p*2}`);
+  $('brow2').setAttribute('d',`M124 ${72+p*4} L106 ${78-p*2}`);
+  $('sweat').setAttribute('opacity',p>.35?1:0);
+  const sh=p*4;$('guy').style.transform=`translate(${(Math.random()-.5)*sh}px,${(Math.random()-.5)*sh}px)`;
+  $('hint').textContent=p>.85?'ALMOST THERE!!':p>.5?'Keep pushing!':p>.15?'Tap faster!':'Tap like crazy!';
+}
+
+function tap(e){
+  if(e)e.preventDefault();
+  audio();
+  if(state!=='play')return;
+  fill=Math.min(100,fill+gain());
+  strainSound();render();
+  if(fill>=100)win();
+}
+function win(){
+  state='done';poopSound();
+  $('guy').style.transform='';
+  $('mouth').setAttribute('ry',2);$('mouth').setAttribute('rx',14);
+  $('hint').textContent='Sweet relief...';
+  const p=$('poop');p.style.opacity=1;p.animate([{transform:'translateY(0)'},{transform:'translateY(25px) scale(1.15)'}],{duration:350,fill:'forwards'});
+  const pl=$('plop');pl.classList.remove('show');void pl.offsetWidth;pl.classList.add('show');
+  setTimeout(()=>{
+    $('msg').querySelector('h2').textContent=`Level ${level} complete!`;
+    $('msg').querySelector('p').innerHTML=`Next up: Level ${level+1}<br>Slower gains, faster drain...`;
+    $('msg').querySelector('.btn').textContent='Next level';
+    $('msg').classList.remove('hidden');
+  },1500);
+}
+function start(){
+  if(state==='play')return;
+  if(state==='done')level++;
+  audio();fill=0;state='play';
+  $('poop').style.opacity=0;
+  $('lvl').textContent='Level '+level;
+  $('msg').classList.add('hidden');
+  last=performance.now();render();
+}
+function loop(t){
+  const dt=(t-last)/1000;last=t;
+  if(state==='play'&&fill>0){fill=Math.max(0,fill-drain()*dt);render();}
+  requestAnimationFrame(loop);
+}
+$('msg').addEventListener('pointerdown',e=>{e.preventDefault();start();});
+$('tapzone').addEventListener('pointerdown',tap);
+$('stage').addEventListener('pointerdown',e=>{if(!$('msg').contains(e.target))tap(e);});
+document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();state==='play'?tap():start();}});
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
